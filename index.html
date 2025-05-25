@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Trash Recognition</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- TensorFlow.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+</head>
+<body>
+  <h1>♻️ Trash Recognition ♻️</h1>
+  <div class="camera-container">
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas" hidden></canvas>
+  </div>
+  <div class="prediction">
+    <p id="label">Loading model…</p>
+    <p id="probability"></p>
+  </div>
+
+  <script>
+    let model;
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const labelEl = document.getElementById('label');
+    const probEl  = document.getElementById('probability');
+    const ctx    = canvas.getContext('2d');
+
+    async function setupCamera() {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' },
+        audio: false
+      });
+      video.srcObject = stream;
+      await new Promise(res => video.onloadedmetadata = res);
+      canvas.width  = video.videoWidth;
+      canvas.height = video.videoHeight;
+    }
+
+    async function loadModel() {
+      model = await tf.loadLayersModel('model/model.json');
+    }
+
+    async function predictFrame() {
+      // draw current video frame to canvas
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      // get image tensor, resize & normalize
+      let img = tf.browser.fromPixels(canvas)
+          .resizeNearestNeighbor([224, 224])
+          .toFloat()
+          .div(255.0)
+          .expandDims();            // shape [1,224,224,3]
+      // run inference
+      const preds = await model.predict(img).data();
+      img.dispose();
+
+      // find top class
+      const classes = ['plastic','paper','metal','glass','trash']; 
+      let topIdx = preds.indexOf(Math.max(...preds));
+      labelEl.innerText = `Prediction: ${classes[topIdx]}`;
+      probEl.innerText  = `Confidence: ${(preds[topIdx]*100).toFixed(1)}%`;
+    }
+
+    async function main() {
+      await setupCamera();
+      await loadModel();
+      labelEl.innerText = 'Model loaded – starting recognition!';
+      // run prediction every 1s
+      setInterval(predictFrame, 1000);
+    }
+
+    main();
+  </script>
+</body>
+</html>
