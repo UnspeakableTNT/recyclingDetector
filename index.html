@@ -10,66 +10,61 @@
 </head>
 <body>
   <h1>♻️ Trash Recognition ♻️</h1>
-
-  <!-- camera feed will be injected here -->
   <div id="webcam-container"></div>
-
-  <!-- predictions will be injected here -->
   <div id="label-container" class="prediction"></div>
 
   <script>
-    const URL = 'model';  // your exported model folder
+    // <-- Add the slash here -->
+    const URL = 'model/';  
     let model, webcam, labelContainer, maxPredictions;
 
     async function init() {
-      // Load the model and metadata
-      const modelURL = URL + 'model.json';
-      const metadataURL = URL + 'metadata.json';
-      model = await tmImage.load(modelURL, metadataURL);
-      maxPredictions = model.getTotalClasses();
+      try {
+        const modelURL = URL + 'model.json';
+        const metadataURL = URL + 'metadata.json';
+        console.log('Loading model from', modelURL, 'and metadata from', metadataURL);
 
-      // Prepare a <div> for each class
-      labelContainer = document.getElementById('label-container');
-      for (let i = 0; i < maxPredictions; i++) {
-        const p = document.createElement('div');
-        p.classList.add('pred-item');
-        labelContainer.appendChild(p);
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+
+        labelContainer = document.getElementById('label-container');
+        for (let i = 0; i < maxPredictions; i++) {
+          const p = document.createElement('div');
+          p.classList.add('pred-item');
+          labelContainer.appendChild(p);
+        }
+
+        const flip = true;
+        webcam = new tmImage.Webcam(320, 240, flip);
+        await webcam.setup();
+        await webcam.play();
+        document.getElementById('webcam-container').appendChild(webcam.canvas);
+
+        window.requestAnimationFrame(loop);
+      } catch (err) {
+        console.error('🛑 Error initializing Teachable Machine model:', err);
+        alert('Failed to load model. Check console for details.');
       }
-
-      // Setup webcam
-      const flip = true; // mirror the feed
-      webcam = new tmImage.Webcam(320, 240, flip);
-      await webcam.setup();      // request camera access
-      await webcam.play();       // start the stream
-      document.getElementById('webcam-container').appendChild(webcam.canvas);
-
-      // kick off the render loop
-      window.requestAnimationFrame(loop);
     }
 
     async function loop() {
-      webcam.update();           // get the latest frame
-      await predict();           // run classification
+      webcam.update();
+      await predict();
       window.requestAnimationFrame(loop);
     }
 
     async function predict() {
-      // run inference on the webcam image
       const predictions = await model.predict(webcam.canvas);
-
-      // sort by probability descending (optional)
       predictions.sort((a, b) => b.probability - a.probability);
-
-      // update the UI
-      for (let i = 0; i < predictions.length; i++) {
-        const className = predictions[i].className;
-        const prob = (predictions[i].probability * 100).toFixed(1);
-        labelContainer.childNodes[i].innerText = `${className}: ${prob}%`;
-      }
+      predictions.forEach((pred, i) => {
+        labelContainer.childNodes[i].innerText =
+          `${pred.className}: ${(pred.probability * 100).toFixed(1)}%`;
+      });
     }
 
     init();
   </script>
 </body>
 </html>
+
 
