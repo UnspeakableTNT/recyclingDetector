@@ -1,0 +1,1 @@
+{"tfjsVersion":"1.7.4","tmVersion":"2.4.10","packageVersion":"0.8.4-alpha2","packageName":"@teachablemachine/image","timeStamp":"2025-05-19T20:54:28.099Z","userMetadata":{},"modelName":"tm-my-image-model","labels":["Glass","Paper_Recycle","Plastic_recycle","Green compost_recycle","Brown compost_recycle","Metal_recycle","Trash"],"imageSize":224}
