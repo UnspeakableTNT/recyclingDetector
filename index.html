@@ -5,72 +5,71 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Trash Recognition</title>
   <link rel="stylesheet" href="styles.css" />
-  <!-- TensorFlow.js -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+  <!-- Teachable Machine Image library -->
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
 </head>
 <body>
   <h1>♻️ Trash Recognition ♻️</h1>
-  <div class="camera-container">
-    <video id="video" autoplay playsinline></video>
-    <canvas id="canvas" hidden></canvas>
-  </div>
-  <div class="prediction">
-    <p id="label">Loading model…</p>
-    <p id="probability"></p>
-  </div>
+
+  <!-- camera feed will be injected here -->
+  <div id="webcam-container"></div>
+
+  <!-- predictions will be injected here -->
+  <div id="label-container" class="prediction"></div>
 
   <script>
-    let model;
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const labelEl = document.getElementById('label');
-    const probEl  = document.getElementById('probability');
-    const ctx    = canvas.getContext('2d');
+    const URL = 'model/';  // your exported model folder
+    let model, webcam, labelContainer, maxPredictions;
 
-    async function setupCamera() {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' },
-        audio: false
-      });
-      video.srcObject = stream;
-      await new Promise(res => video.onloadedmetadata = res);
-      canvas.width  = video.videoWidth;
-      canvas.height = video.videoHeight;
+    async function init() {
+      // Load the model and metadata
+      const modelURL = URL + 'model.json';
+      const metadataURL = URL + 'metadata.json';
+      model = await tmImage.load(modelURL, metadataURL);
+      maxPredictions = model.getTotalClasses();
+
+      // Prepare a <div> for each class
+      labelContainer = document.getElementById('label-container');
+      for (let i = 0; i < maxPredictions; i++) {
+        const p = document.createElement('div');
+        p.classList.add('pred-item');
+        labelContainer.appendChild(p);
+      }
+
+      // Setup webcam
+      const flip = true; // mirror the feed
+      webcam = new tmImage.Webcam(320, 240, flip);
+      await webcam.setup();      // request camera access
+      await webcam.play();       // start the stream
+      document.getElementById('webcam-container').appendChild(webcam.canvas);
+
+      // kick off the render loop
+      window.requestAnimationFrame(loop);
     }
 
-    async function loadModel() {
-      model = await tf.loadLayersModel('model/model.json');
+    async function loop() {
+      webcam.update();           // get the latest frame
+      await predict();           // run classification
+      window.requestAnimationFrame(loop);
     }
 
-    async function predictFrame() {
-      // draw current video frame to canvas
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      // get image tensor, resize & normalize
-      let img = tf.browser.fromPixels(canvas)
-          .resizeNearestNeighbor([224, 224])
-          .toFloat()
-          .div(255.0)
-          .expandDims();            // shape [1,224,224,3]
-      // run inference
-      const preds = await model.predict(img).data();
-      img.dispose();
+    async function predict() {
+      // run inference on the webcam image
+      const predictions = await model.predict(webcam.canvas);
 
-      // find top class
-      const classes = ['plastic','paper','metal','glass','trash']; 
-      let topIdx = preds.indexOf(Math.max(...preds));
-      labelEl.innerText = `Prediction: ${classes[topIdx]}`;
-      probEl.innerText  = `Confidence: ${(preds[topIdx]*100).toFixed(1)}%`;
+      // sort by probability descending (optional)
+      predictions.sort((a, b) => b.probability - a.probability);
+
+      // update the UI
+      for (let i = 0; i < predictions.length; i++) {
+        const className = predictions[i].className;
+        const prob = (predictions[i].probability * 100).toFixed(1);
+        labelContainer.childNodes[i].innerText = `${className}: ${prob}%`;
+      }
     }
 
-    async function main() {
-      await setupCamera();
-      await loadModel();
-      labelEl.innerText = 'Model loaded – starting recognition!';
-      // run prediction every 1s
-      setInterval(predictFrame, 1000);
-    }
-
-    main();
+    init();
   </script>
 </body>
 </html>
+
