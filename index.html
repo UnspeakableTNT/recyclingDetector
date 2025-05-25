@@ -1,70 +1,109 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Trash Recognition</title>
-    <link rel="stylesheet" href="styles.css" />
-    <!-- 1) TensorFlow.js -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
-    <!-- 2) Teachable Machine Image bundle -->
-    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-  </head>
-  <body>
-    <h1>♻️ Trash Recognition ♻️</h1>
-    <div id="error" style="color:#c00;font-weight:bold;"></div>
-    <div id="webcam-container"></div>
-    <div id="label-container" class="prediction"></div>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>♻️ Trash Recognition</title>
 
-    <script>
-      const URL = './model/';
-      let model, webcam, labelContainer, maxPredictions;
+  <!-- Embedded CSS -->
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      background: #f0f4f8;
+      margin: 0; padding: 1em;
+    }
+    h1 {
+      margin-bottom: 0.5em;
+    }
+    .error {
+      color: #c00;
+      font-weight: bold;
+      margin-bottom: 1em;
+    }
+    #webcam-container {
+      display: inline-block;
+      border: 4px solid #4caf50;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #000;
+    }
+    #webcam-container canvas {
+      width: 320px;
+      height: 240px;
+    }
+    .prediction {
+      margin-top: 1em;
+    }
+    .pred-item {
+      font-weight: bold;
+      margin: 0.2em 0;
+    }
+  </style>
 
-      async function init() {
-        try {
-          const modelURL    = URL + 'model.json';
-          const metadataURL = URL + 'metadata.json';
-          console.log('Loading model from', modelURL, 'and metadata from', metadataURL);
+  <!-- 1) TensorFlow.js runtime -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+  <!-- 2) Teachable Machine Image UMD bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+</head>
+<body>
+  <h1>♻️ Trash Recognition ♻️</h1>
+  <div id="error" class="error"></div>
+  <div id="webcam-container"></div>
+  <div id="label-container" class="prediction"></div>
 
-          model = await tmImage.load(modelURL, metadataURL);
-          maxPredictions = model.getTotalClasses();
+  <!-- Inline JS -->
+  <script>
+    const URL = './model/';  // make sure your folder is named exactly "model"
+    let model, webcam, labelContainer, maxPredictions;
 
-          // build out label elements
-          labelContainer = document.getElementById('label-container');
-          for (let i = 0; i < maxPredictions; i++) {
-            const p = document.createElement('div');
-            p.classList.add('pred-item');
-            labelContainer.appendChild(p);
-          }
+    async function init() {
+      try {
+        const modelURL    = URL + 'model.json';
+        const metadataURL = URL + 'metadata.json';
+        console.log('Loading model from', modelURL, 'and metadata from', metadataURL);
 
-          // setup webcam
-          webcam = new tmImage.Webcam(320, 240, true);
-          await webcam.setup();
-          await webcam.play();
-          document.getElementById('webcam-container').appendChild(webcam.canvas);
+        // tmImage is provided by teachablemachine-image.min.js
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
 
-          window.requestAnimationFrame(loop);
-        } catch (err) {
-          console.error('🛑 Model load error:', err);
-          document.getElementById('error').innerText =
-            '❌ Failed to load model: ' + err.message;
+        // create a <div> for each class
+        labelContainer = document.getElementById('label-container');
+        for (let i = 0; i < maxPredictions; i++) {
+          const p = document.createElement('div');
+          p.classList.add('pred-item');
+          labelContainer.appendChild(p);
         }
-      }
 
-      async function loop() {
-        webcam.update();
-        const predictions = await model.predict(webcam.canvas);
-        predictions
-          .sort((a, b) => b.probability - a.probability)
-          .forEach((pred, i) => {
-            labelContainer.childNodes[i].innerText =
-              `${pred.className}: ${(pred.probability*100).toFixed(1)}%`;
-          });
+        // setup webcam
+        webcam = new tmImage.Webcam(320, 240, true);
+        await webcam.setup();
+        await webcam.play();
+        document.getElementById('webcam-container').appendChild(webcam.canvas);
+
+        // start the prediction loop
         window.requestAnimationFrame(loop);
+      } catch (err) {
+        console.error('🛑 Model load error:', err);
+        document.getElementById('error').innerText =
+          '❌ Failed to load model: ' + err.message;
       }
+    }
 
-      init();
-    </script>
-  </body>
+    async function loop() {
+      webcam.update();
+      const predictions = await model.predict(webcam.canvas);
+      predictions
+        .sort((a, b) => b.probability - a.probability)
+        .forEach((pred, i) => {
+          labelContainer.childNodes[i].innerText =
+            `${pred.className}: ${(pred.probability * 100).toFixed(1)}%`;
+        });
+      window.requestAnimationFrame(loop);
+    }
+
+    // kick off
+    init();
+  </script>
+</body>
 </html>
-
