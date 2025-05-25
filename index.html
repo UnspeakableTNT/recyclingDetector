@@ -1,79 +1,70 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Trash Recognition</title>
-  <link rel="stylesheet" href="styles.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
-  <style>
-    /* quick inline error styling */
-    #error {
-      color: #c00;
-      margin-top: 1em;
-      font-weight: bold;
-    }
-  </style>
-</head>
-<body>
-  <h1>♻️ Trash Recognition ♻️</h1>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Trash Recognition</title>
+    <link rel="stylesheet" href="styles.css" />
+    <!-- 1) TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+    <!-- 2) Teachable Machine Image bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+  </head>
+  <body>
+    <h1>♻️ Trash Recognition ♻️</h1>
+    <div id="error" style="color:#c00;font-weight:bold;"></div>
+    <div id="webcam-container"></div>
+    <div id="label-container" class="prediction"></div>
 
-  <!-- error messages will go here -->
-  <div id="error"></div>
+    <script>
+      const URL = './model/';
+      let model, webcam, labelContainer, maxPredictions;
 
-  <div id="webcam-container"></div>
-  <div id="label-container" class="prediction"></div>
+      async function init() {
+        try {
+          const modelURL    = URL + 'model.json';
+          const metadataURL = URL + 'metadata.json';
+          console.log('Loading model from', modelURL, 'and metadata from', metadataURL);
 
-  <script>
-    const URL = './model/';   // ensure trailing slash
-    let model, webcam, labelContainer, maxPredictions;
+          model = await tmImage.load(modelURL, metadataURL);
+          maxPredictions = model.getTotalClasses();
 
-    async function init() {
-      try {
-        const modelURL    = URL + 'model.json';
-        const metadataURL = URL + 'metadata.json';
-        console.log('Loading', modelURL, metadataURL);
+          // build out label elements
+          labelContainer = document.getElementById('label-container');
+          for (let i = 0; i < maxPredictions; i++) {
+            const p = document.createElement('div');
+            p.classList.add('pred-item');
+            labelContainer.appendChild(p);
+          }
 
-        model = await tmImage.load(modelURL, metadataURL);
-        maxPredictions = model.getTotalClasses();
+          // setup webcam
+          webcam = new tmImage.Webcam(320, 240, true);
+          await webcam.setup();
+          await webcam.play();
+          document.getElementById('webcam-container').appendChild(webcam.canvas);
 
-        labelContainer = document.getElementById('label-container');
-        for (let i = 0; i < maxPredictions; i++) {
-          const p = document.createElement('div');
-          p.classList.add('pred-item');
-          labelContainer.appendChild(p);
+          window.requestAnimationFrame(loop);
+        } catch (err) {
+          console.error('🛑 Model load error:', err);
+          document.getElementById('error').innerText =
+            '❌ Failed to load model: ' + err.message;
         }
-
-        webcam = new tmImage.Webcam(320, 240, true);
-        await webcam.setup();
-        await webcam.play();
-        document.getElementById('webcam-container').appendChild(webcam.canvas);
-
-        window.requestAnimationFrame(loop);
-
-      } catch (err) {
-        console.error('Model load error:', err);
-        // show the error on the page
-        document.getElementById('error').innerText =
-          '❌ Failed to load model: ' + err.message;
       }
-    }
 
-    async function loop() {
-      webcam.update();
-      const predictions = await model.predict(webcam.canvas);
-      predictions
-        .sort((a, b) => b.probability - a.probability)
-        .forEach((pred, i) => {
-          labelContainer.childNodes[i].innerText =
-            `${pred.className}: ${(pred.probability*100).toFixed(1)}%`;
-        });
-      window.requestAnimationFrame(loop);
-    }
+      async function loop() {
+        webcam.update();
+        const predictions = await model.predict(webcam.canvas);
+        predictions
+          .sort((a, b) => b.probability - a.probability)
+          .forEach((pred, i) => {
+            labelContainer.childNodes[i].innerText =
+              `${pred.className}: ${(pred.probability*100).toFixed(1)}%`;
+          });
+        window.requestAnimationFrame(loop);
+      }
 
-    init();
-  </script>
-</body>
+      init();
+    </script>
+  </body>
 </html>
-
 
